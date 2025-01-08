@@ -8,15 +8,16 @@ import time
 import numpy as np
 import pickle as pkl
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 import torch
 from torch_geometric.loader import DataLoader
 
-from model.gnn import MPNN
+from model.gnn import MPNN, EGNN
 import graph_utils.utils as gu
 
 
-def train(datasets, plot_loss=True, save_model=True):
+def train(datasets, plot_loss=True, save_model=True, model_type='egnn'):
     # load datasets of interest
     data_list = []
     for dataset in datasets:
@@ -29,11 +30,22 @@ def train(datasets, plot_loss=True, save_model=True):
     config = json.load(open('model/config.json', 'r'))
 
     # init model
-    model = MPNN(
-        noise_std=config['noise_std'],
-        mp_mlp_hidden_dim=config['mp_mlp_hidden_dim'],
-        update_mlp_hidden_dim=config['update_mlp_hidden_dim']
-    )
+    if model_type == 'mpnn':
+        model = MPNN(
+            noise_std=config['noise_std'],
+            mp_mlp_hidden_dim=config['mp_mlp_hidden_dim'],
+            update_mlp_hidden_dim=config['update_mlp_hidden_dim']
+        )
+
+    elif model_type == 'egnn':
+        model = EGNN(
+            num_fish=train[0].x.shape[0],
+            batch_size=config['batch_size'],
+            noise_std=config['noise_std'],
+            mlp_hidden_dim=config['mp_mlp_hidden_dim'],
+            mlp_depth=config['mlp_depth']
+        )
+
     model.train()
     loss_fn = torch.nn.MSELoss()
     opt = torch.optim.Adam(model.parameters(), lr=config['adam_lr'])
@@ -42,7 +54,6 @@ def train(datasets, plot_loss=True, save_model=True):
     loss_vals = []
     dataloader = DataLoader(
         train,
-        follow_batch=['pos', 'acc', 'vel'],
         batch_size=config['batch_size'],
         shuffle=True
     )
@@ -55,9 +66,15 @@ def train(datasets, plot_loss=True, save_model=True):
             out = model(
                 x=g.x,
                 edge_index=g.edge_index,
-                edge_attr=g.edge_attr
+                edge_attr=g.edge_attr,
+                pos=g.pos
             )
-            loss = loss_fn(out, g.acc)
+
+            if model_type == 'mpnn':
+                loss = loss_fn(out, g.acc)
+
+            elif model_type == 'egnn':
+                loss = loss_fn(out, g.pos_next)
 
             # backward pass
             loss.backward()
@@ -73,6 +90,8 @@ def train(datasets, plot_loss=True, save_model=True):
     # post processing model
     if plot_loss:
         gu.plot_loss(loss_vals)
+        gu.plot_loss(epoch_loss)
+        plt.show()
 
     if save_model:
         fp = 'results/saved_models'  # TODO: add option to specify model name
@@ -81,7 +100,9 @@ def train(datasets, plot_loss=True, save_model=True):
             {
                 'model': model.state_dict(),
                 'datasets': datasets,
-                'config': config
+                'config': config,
+                'loss': loss_vals,
+                'model_type': model_type
             },
             file
         )

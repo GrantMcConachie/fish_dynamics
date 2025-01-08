@@ -36,7 +36,6 @@ def plot_loss(loss_vals):
     axs.plot(range(len(loss_vals)), loss_vals)
     axs.set_ylabel('loss')
     axs.set_xlabel('iter')
-    plt.show()
 
 
 def train_val_test(data, train_size=0.8, val_size=0.1, test_size=0.1):
