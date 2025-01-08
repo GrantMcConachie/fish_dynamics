@@ -1,6 +1,7 @@
 # project specific
 data/
 test_scripts/
+results/
 
 # apple specific
 .DS_Store
