@@ -97,6 +97,7 @@ def generate_graphs(state_vars):
 
         # making edge features
         pos = state_vars['x'][:, :, i]
+        pos_next = state_vars['x'][:, :, i+1]
         edge_attr = torch.tensor(
             pos[edge_index[0]] - pos[edge_index[1]],
             dtype=torch.float
@@ -108,6 +109,7 @@ def generate_graphs(state_vars):
             edge_attr=edge_attr,
             edge_index=edge_index,
             pos=torch.tensor(pos, dtype=torch.float),
+            pos_next=torch.tensor(pos_next, dtype=torch.float),
             vel=torch.tensor(state_vars['x_dot'][:, :, i], dtype=torch.float),
             acc=torch.tensor(
                 state_vars['x_dot_dot'][:, :, i], dtype=torch.float
