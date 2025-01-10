@@ -32,7 +32,6 @@ requests==2.32.3
 scipy==1.14.1
 setuptools==75.6.0
 six==1.16.0
--e git+https://github.com/GrantMcConachie/fish_dynamics.git@986605936f4b5f609eb57363c1bd1f86ebb201df#egg=src
 sympy==1.13.1
 torch==2.5.1
 torch-geometric==2.6.1
