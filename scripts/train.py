@@ -94,7 +94,7 @@ def train(datasets, plot_loss=True, save_model=True, model_type='egnn'):
         plt.show()
 
     if save_model:
-        fp = 'results/saved_models'  # TODO: add option to specify model name
+        fp = './results/saved_models'  # TODO: add option to specify model name
         file = os.path.join(fp, f'tmp{round(time.time())}.pt')
         torch.save(
             {
@@ -109,5 +109,5 @@ def train(datasets, plot_loss=True, save_model=True, model_type='egnn'):
 
 
 if __name__ == '__main__':
-    datasets = ['data/processed/8fish/240816f1.pkl']
+    datasets = ['./Processed Fish Data/data/processed/8fish/240816f4.pkl']
     train(datasets=datasets)
