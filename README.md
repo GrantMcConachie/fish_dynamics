@@ -21,7 +21,7 @@ Ask me for the data and I can send it to you.
 ```
 python scripts/train.py
 ```
-The train script should save the fully trained model into `results/saved_models` with a time stamp. The configuration of the model can be found in `model/config.json' if you want to tweak any of the parameters.
+The train script should save the fully trained model into `results/saved_models` with a time stamp. The configuration of the model can be found in `model/config.json` if you want to tweak any of the parameters.
 
 # Running the evaluation script
 Once a model has completed training
