@@ -17,5 +17,10 @@ pip install -e .
 ```
 
 # Running a training script
+Ask me for the data and I can send it to you.
+```
+python scripts/train.py
+```
 
 # Running the evaluation script
+
