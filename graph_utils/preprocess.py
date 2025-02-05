@@ -1,5 +1,7 @@
 """
 Script that preprocesses the raw data
+
+TODO: encode heading angle
 """
 
 import os
@@ -79,7 +81,10 @@ def generate_graphs(state_vars):
 
     Input:
         state_vars (dict) - fish position, velocity, and acceleration data for
-          a given video
+          a given video. (num_units, x-y position, time)
+
+    Return:
+        graphs (list) - list of pytorch gemoetric graphs
     """
     # learnable node matrix
     num_nodes = state_vars['x'].shape[0]
@@ -87,6 +92,10 @@ def generate_graphs(state_vars):
 
     # edge index for fully connected graph
     edge_index = make_edge_idx(num_nodes)
+
+    # adjust if all the same value
+    if state_vars['x_dot_dot'].shape[-1] == state_vars['x'].shape[-1]:
+        state_vars['x_dot_dot'] = state_vars['x_dot_dot'][:, :, :-1]
 
     # loop through time
     graphs = []
@@ -98,7 +107,7 @@ def generate_graphs(state_vars):
         # making edge features
         pos = state_vars['x'][:, :, i]
         pos_next = state_vars['x'][:, :, i+1]
-        edge_attr = torch.tensor(
+        edge_attr = torch.tensor(  # relative positions
             pos[edge_index[0]] - pos[edge_index[1]],
             dtype=torch.float
         )
@@ -160,12 +169,12 @@ def main(fp, save_fp):
 if __name__ == '__main__':
     # 8 fish
     main(
-        fp='data/raw data/8fish',
-        save_fp='data/processed/8fish'
+        fp='data/fish/raw data/8fish',
+        save_fp='data/fish/processed/8fish'
     )
 
     # 10 fish
     main(
-        fp='data/raw data/10fish/DATA',
-        save_fp='data/processed/10fish'
+        fp='data/fish/raw data/10fish/DATA',
+        save_fp='data/fish/processed/10fish'
     )
