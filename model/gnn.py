@@ -181,7 +181,7 @@ class EGNNVel(EGNN):
 
 
 if __name__ == '__main__':
-    g = pkl.load(open('data/processed/8fish/240816f1.pkl', 'rb'))[0]
+    g = pkl.load(open('data/fish/processed/8fish/240816f1.pkl', 'rb'))[0]
     config = json.load(open('model/config.json', 'r'))
     model = EGNNVel(
         noise_std=config['noise_std'],
