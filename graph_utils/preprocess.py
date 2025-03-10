@@ -34,9 +34,10 @@ def generate_x_dot(loc, frame_rate=120):
             pd.DataFrame(pos).interpolate(axis=1, limit_direction='both')
         )
 
-        # px to mm and center
+        # px to mm, center, and normalize
         pos *= (300 / 750)
         pos -= 150
+        pos /= 150
 
         # calculating velocity and acceleration
         vel = np.array(
