@@ -2,6 +2,7 @@
 data/
 test_scripts/
 results/
+*.gif
 
 # apple specific
 .DS_Store
