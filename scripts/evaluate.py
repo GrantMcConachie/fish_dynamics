@@ -11,6 +11,7 @@ import torch
 from torch_geometric.loader import DataLoader
 
 from model.gnn import MPNN, EGNN
+from model.eggn_model import EGNN_vel
 import graph_utils.utils as gu
 
 
@@ -61,23 +62,39 @@ def rollout_inference_acc(model, test_set, frame_rate=120):
     ]
 
 
-def rollout_inference_pos(model, test_set, frame_rate=120):
+def rollout_inference_pos(model, test_set, model_type, frame_rate=120):
     """
     Predicts the position of the fish over time with a model that predicts the
     position of the fish
     """
     # initial values
-    pos = test_set[0].pos
-    # vel = test_set[0].vel
-    edge_index = test_set[0].edge_index
+    pos = test_set[0].pos.detach().clone()
+    vel = test_set[0].vel.detach().clone()
+    edge_index = test_set[0].edge_index.detach().clone()
+    edge_attr = test_set[0].edge_attr.detach().clone()
 
     # initial prediction
-    pos = model(
-        x=test_set[0].x,
-        edge_index=test_set[0].edge_index,
-        edge_attr=test_set[0].edge_attr,
-        pos=test_set[0].pos
-    )
+    if model_type == 'egnn_paper':
+        nodes = torch.sqrt(
+            torch.sum(vel ** 2, dim=1)
+        ).unsqueeze(1).detach()
+        pos_next = model(
+            nodes,
+            pos.detach().clone(),
+            [edge_index[0], edge_index[1]],
+            vel,
+            torch.sum((edge_attr) ** 2, axis=1).unsqueeze(1)
+        )
+        vel = (pos_next - pos) / frame_rate
+        pos = pos_next
+
+    else:
+        pos = model(
+            x=test_set[0].x,
+            edge_index=test_set[0].edge_index,
+            edge_attr=test_set[0].edge_attr,
+            pos=test_set[0].pos
+        )
 
     # rollout prediction
     rollout_preds_pos = []
@@ -91,12 +108,28 @@ def rollout_inference_pos(model, test_set, frame_rate=120):
                 pos[edge_index[0]] - pos[edge_index[1]],
                 dtype=torch.float
             )
-        pos = model(
-            x=test_set[0].x,  # all ones for now
-            edge_index=test_set[0].edge_index,
-            edge_attr=new_edge_attr,
-            pos=pos
-        )
+        
+        if model_type == 'egnn_paper':
+            nodes = torch.sqrt(
+                torch.sum(vel ** 2, dim=1)
+            ).unsqueeze(1).detach()
+            pos_next = model(
+                nodes,
+                pos.detach().clone(),
+                [edge_index[0], edge_index[1]],
+                vel,
+                torch.sum((new_edge_attr) ** 2, axis=1).unsqueeze(1)
+            )
+            vel = (pos_next - pos) / frame_rate
+            pos = pos_next
+
+        else:
+            pos = model(
+                x=test_set[0].x,  # all ones for now
+                edge_index=test_set[0].edge_index,
+                edge_attr=new_edge_attr,
+                pos=pos
+            )
 
     return [
         rollout_preds_pos,
@@ -135,7 +168,7 @@ def plot_rollout(rollout_preds, test_set):
 
         for ax in axs.reshape(-1):
             ax.set_ylim([-150, 150])
-            ax.set_xlim([0, 240])
+            # ax.set_xlim([0, 240])
             pass
 
         fig.supxlabel('time')
@@ -190,36 +223,50 @@ def evaluate(model):
         val_out = val_batch.pos
         test_out = test_batch.pos
 
+    elif checkpoint['model_type'] == 'egnn_paper':
+        model = EGNN_vel(
+            in_node_nf=1,
+            in_edge_nf=1,
+            hidden_nf=64,
+            device='cpu',
+            n_layers=4,
+            recurrent=True,
+            norm_diff=False,
+            tanh=False
+        )
+        val_out = val_batch.pos
+        test_out = test_batch.pos
+
     model.load_state_dict(checkpoint['model'])
     model.eval()
 
-    val_loss = loss_fn(
-        model(
-            x=val_batch.x,
-            edge_index=val_batch.edge_index,
-            edge_attr=val_batch.edge_attr,
-            pos=val_batch.pos
-        ),
-        val_out
-    )
-    test_loss = loss_fn(
-        model(
-            x=test_batch.x,
-            edge_index=test_batch.edge_index,
-            edge_attr=test_batch.edge_attr,
-            pos=test_batch.pos
-        ),
-        test_out
-    )
+    # val_loss = loss_fn(
+    #     model(
+    #         x=val_batch.x,
+    #         edge_index=val_batch.edge_index,
+    #         edge_attr=val_batch.edge_attr,
+    #         pos=val_batch.pos
+    #     ),
+    #     val_out
+    # )
+    # test_loss = loss_fn(
+    #     model(
+    #         x=test_batch.x,
+    #         edge_index=test_batch.edge_index,
+    #         edge_attr=test_batch.edge_attr,
+    #         pos=test_batch.pos
+    #     ),
+    #     test_out
+    # )
 
     if checkpoint['model_type'] == 'mpnn':
         rollout_preds = rollout_inference_acc(model, test)
-    elif checkpoint['model_type'] == 'egnn':
-        rollout_preds = rollout_inference_pos(model, test)
+    elif checkpoint['model_type'] == 'egnn' or 'egnn_paper':
+        rollout_preds = rollout_inference_pos(model, test, checkpoint['model_type'])
 
     # printing results
-    print('val loss:', val_loss)
-    print('test loss:', test_loss)
+    # print('val loss:', val_loss)
+    # print('test loss:', test_loss)
     plot_rollout(rollout_preds[0], test)
 
 
