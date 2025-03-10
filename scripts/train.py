@@ -14,6 +14,7 @@ import torch
 from torch_geometric.loader import DataLoader
 
 from model.gnn import MPNN, EGNN
+from model.eggn_model import EGNN_vel
 import graph_utils.utils as gu
 
 
@@ -46,6 +47,18 @@ def train(datasets, plot_loss=True, save_model=True, model_type='egnn'):
             mlp_depth=config['mlp_depth']
         )
 
+    elif model_type == 'egnn_paper':
+        model = EGNN_vel(
+            in_node_nf=1,
+            in_edge_nf=1,
+            hidden_nf=64,
+            device='cpu',
+            n_layers=4,
+            recurrent=True,
+            norm_diff=False,
+            tanh=False
+        )
+
     model.train()
     loss_fn = torch.nn.MSELoss()
     opt = torch.optim.Adam(model.parameters(), lr=config['adam_lr'])
@@ -63,17 +76,30 @@ def train(datasets, plot_loss=True, save_model=True, model_type='egnn'):
             opt.zero_grad()
 
             # foraward pass
-            out = model(
-                x=g.x,
-                edge_index=g.edge_index,
-                edge_attr=g.edge_attr,
-                pos=g.pos
-            )
+            if model_type == 'egnn_paper':
+                nodes = torch.sqrt(
+                    torch.sum(g.vel ** 2, dim=1)
+                ).unsqueeze(1).detach()
+                out = model(
+                    nodes,
+                    g.pos.detach(),
+                    [g.edge_index[0], g.edge_index[1]],
+                    g.vel,
+                    torch.sum((g.edge_attr) ** 2, axis=1).unsqueeze(1)
+                )
+
+            else:
+                out = model(
+                    x=g.x,
+                    edge_index=g.edge_index,
+                    edge_attr=g.edge_attr,
+                    pos=g.pos
+                )
 
             if model_type == 'mpnn':
                 loss = loss_fn(out, g.acc)
 
-            elif model_type == 'egnn':
+            elif model_type == 'egnn' or 'egnn_paper':
                 loss = loss_fn(out, g.pos_next)
 
             # backward pass
@@ -109,5 +135,5 @@ def train(datasets, plot_loss=True, save_model=True, model_type='egnn'):
 
 
 if __name__ == '__main__':
-    datasets = ['data/processed/8fish/240816f1.pkl']
+    datasets = ['data/fish/processed/8fish/240816f1.pkl']
     train(datasets=datasets)
