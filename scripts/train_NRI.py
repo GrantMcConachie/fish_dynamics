@@ -75,7 +75,7 @@ def train(datasets, plot_loss=True, save_model=True, model_type='egnn'):
     # get model config
     config = json.load(open('model/config_NRI.json', 'r'))
 
-    # split train val test into chunks
+    # split train val test into chunks TODO: incorporate different chunk every epoch
     train = gu.chunk_data_for_NRI(train, size=config['timesteps'])
     val = gu.chunk_data_for_NRI(val, size=config['timesteps'])
 
