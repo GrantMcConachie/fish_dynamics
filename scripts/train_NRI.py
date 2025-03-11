@@ -90,7 +90,7 @@ def train(datasets, plot_loss=True, save_model=True, model_type='egnn'):
         config['edge_types'],
         config['encoder_dropout'],
         config['factor']
-    ).to(device)
+    )
     decoder = MLPDecoder(
         n_in_node=config['node_dim'],
         edge_types=config['edge_types'],
