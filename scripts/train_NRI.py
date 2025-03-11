@@ -23,7 +23,7 @@ import graph_utils.utils as gu
 import graph_utils.nri_utils as gun
 
 
-def validate(encoder, decoder, rel_rec, rel_send, val, config, num_fish):
+def validate(encoder, decoder, rel_rec, rel_send, val, config, num_fish, device):
     """
     gets validation loss of the model
     """
@@ -38,6 +38,7 @@ def validate(encoder, decoder, rel_rec, rel_send, val, config, num_fish):
 
     # val loop
     for g in val_dataloader:
+        g.to(device)
         # forward pass
         logits = encoder(g.x, rel_rec, rel_send)
         edges = gun.gumbel_softmax(logits, tau=config['temp'], hard=config['hard'])
@@ -64,6 +65,9 @@ def train(datasets, plot_loss=True, save_model=True, model_type='egnn'):
     """
     training loop for the model
     """
+    # check for gpu
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
     # load datasets of interest
     data_list = []
     for dataset in datasets:
@@ -86,7 +90,7 @@ def train(datasets, plot_loss=True, save_model=True, model_type='egnn'):
         config['edge_types'],
         config['encoder_dropout'],
         config['factor']
-    )
+    ).to(device)
     decoder = MLPDecoder(
         n_in_node=config['node_dim'],
         edge_types=config['edge_types'],
@@ -96,6 +100,8 @@ def train(datasets, plot_loss=True, save_model=True, model_type='egnn'):
         do_prob=config['decoder_dropout'],
         skip_first=config['skip_first']
     )
+    encoder.to(device)
+    decoder.to(device)
 
     optimizer = optim.Adam(
         list(encoder.parameters()) + list(decoder.parameters()), lr=config['lr']
@@ -110,8 +116,8 @@ def train(datasets, plot_loss=True, save_model=True, model_type='egnn'):
     off_diag = np.ones([num_fish, num_fish]) - np.eye(num_fish)
     rel_rec = np.array(gun.encode_onehot(np.where(off_diag)[0]), dtype=float)
     rel_send = np.array(gun.encode_onehot(np.where(off_diag)[1]), dtype=float)
-    rel_rec = torch.FloatTensor(rel_rec)
-    rel_send = torch.FloatTensor(rel_send)
+    rel_rec = torch.FloatTensor(rel_rec).to(device)
+    rel_send = torch.FloatTensor(rel_send).to(device)
 
     # training loop
     tot_train_loss = []
@@ -130,6 +136,7 @@ def train(datasets, plot_loss=True, save_model=True, model_type='egnn'):
         epoch_loss_kl = []
 
         for g in dataloader:
+            g.to(device)
             optimizer.zero_grad()
 
             # encoder
@@ -165,7 +172,7 @@ def train(datasets, plot_loss=True, save_model=True, model_type='egnn'):
         encoder.eval()
         decoder.eval()
         curr_val_loss, val_loss_nll, val_loss_kl = validate(
-            encoder, decoder, rel_rec, rel_send, val, config, num_fish
+            encoder, decoder, rel_rec, rel_send, val, config, num_fish, device
         )
 
         # epoch metrics
