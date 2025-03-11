@@ -53,11 +53,11 @@ def validate(encoder, decoder, rel_rec, rel_send, val, config, num_fish):
             prob, num_fish, config['edge_types']
         )
         loss = loss_nll + loss_kl
-        val_loss.append(loss)
-        val_loss_nll.append(loss_nll)
-        val_loss_kl.append(loss_kl)
+        val_loss.append(loss.item())
+        val_loss_nll.append(loss_nll.item())
+        val_loss_kl.append(loss_kl.item())
 
-    return torch.mean(val_loss), torch.mean(val_loss_nll), torch.mean(val_loss_kl)
+    return np.mean(val_loss), np.mean(val_loss_nll), np.mean(val_loss_kl)
 
 
 def train(datasets, plot_loss=True, save_model=True, model_type='egnn'):
@@ -158,8 +158,8 @@ def train(datasets, plot_loss=True, save_model=True, model_type='egnn'):
 
             # record keeping
             epoch_loss.append(loss.item())
-            epoch_loss_nll.append(loss_nll)
-            epoch_loss_kl.append(loss_kl)
+            epoch_loss_nll.append(loss_nll.item())
+            epoch_loss_kl.append(loss_kl.item())
 
         # get validation loss
         encoder.eval()
@@ -169,20 +169,19 @@ def train(datasets, plot_loss=True, save_model=True, model_type='egnn'):
         )
 
         # epoch metrics
-        print(f' 
-            epoch {i} \n 
-            train loss: {torch.mean(epoch_loss)} \n 
-            train nll loss: {torch.mean(epoch_loss_nll)} \n 
-            train kl loss: {torch.mean(epoch_loss_kl)} \n 
-            val loss: {curr_val_loss} \n 
-            val nll loss: {val_loss_nll} \n 
-            val kl loss: {val_loss_kl} \n
-            '
+        print(
+            f'epoch {i}\n',
+            f'train loss: {np.mean(epoch_loss)}\n',
+            f'train nll loss: {np.mean(epoch_loss_nll)}\n',
+            f'train kl loss: {np.mean(epoch_loss_kl)}\n',
+            f'val loss: {curr_val_loss}\n',
+            f'val nll loss: {val_loss_nll}\n',
+            f'val kl loss: {val_loss_kl}\n\n'
         )
 
         # save model
         if save_model and curr_val_loss < best_val_loss:
-            tot_train_loss.append(torch.mean(epoch_loss))
+            tot_train_loss.append(np.mean(epoch_loss))
             tot_val_loss.append(curr_val_loss)
             fp = 'results/saved_models'
             file = os.path.join(fp, f'nri.pt')
