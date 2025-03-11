@@ -90,9 +90,13 @@ def chunk_data_for_NRI(data, size=49):
     """
     # Making data divisible by size
     data_rm = len(data) % size
-    rm_left = data_rm // 2
-    rm_right = data_rm - rm_left
-    data = data[rm_left:-rm_right]
+    if data_rm == 0:
+        pass
+
+    else:
+        rm_left = data_rm // 2
+        rm_right = data_rm - rm_left
+        data = data[rm_left:-rm_right]
 
     # loop through data
     chunked_graphs = []
