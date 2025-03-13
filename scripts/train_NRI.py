@@ -191,7 +191,7 @@ def train(datasets, plot_loss=True, save_model=True, model_type='egnn'):
             tot_train_loss.append(np.mean(epoch_loss))
             tot_val_loss.append(curr_val_loss)
             fp = 'results/saved_models'
-            file = os.path.join(fp, f'nri.pt')
+            file = os.path.join(fp, f'nri_all8fish.pt')
             torch.save(
                 {
                     'encoder': encoder.state_dict(),
@@ -208,5 +208,14 @@ def train(datasets, plot_loss=True, save_model=True, model_type='egnn'):
 
 
 if __name__ == '__main__':
-    datasets = ['data/fish/processed/8fish/240816f1.pkl']
+    datasets = [
+        'data/fish/processed/8fish/240816f2.pkl',
+        'data/fish/processed/8fish/240816f4.pkl',
+        'data/fish/processed/8fish/240820f2.pkl',
+        'data/fish/processed/8fish/240820f4.pkl',
+        'data/fish/processed/8fish/240821f2.pkl',
+        'data/fish/processed/8fish/240821f3.pkl',
+        'data/fish/processed/8fish/240821f5.pkl',
+        'data/fish/processed/8fish/240821f7.pkl'
+    ]
     train(datasets=datasets)
