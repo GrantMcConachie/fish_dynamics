@@ -68,20 +68,22 @@ def train(datasets, plot_loss=True, save_model=True, model_type='egnn'):
     # check for gpu
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    # load datasets of interest
-    data_list = []
-    for dataset in datasets:
-        data_list += pkl.load(open(dataset, 'rb'))
-
-    # split into train and test
-    train, val, test = gu.train_val_test(data_list)
-
     # get model config
     config = json.load(open('model/config_NRI.json', 'r'))
 
-    # split train val test into chunks TODO: incorporate different chunk every epoch
-    train = gu.chunk_data_for_NRI(train, size=config['timesteps'])
-    val = gu.chunk_data_for_NRI(val, size=config['timesteps'])
+    # load datasets of interest
+    train_list = []
+    val_list = []
+    test_list = []
+    for dataset in datasets:
+        data_list = pkl.load(open(dataset, 'rb'))
+
+        # split into train and test
+        train, val, test = gu.train_val_test(data_list)
+
+        # split train val test into chunks TODO: incorporate different chunk every epoch
+        train_list += gu.chunk_data_for_NRI(train, size=config['timesteps'])
+        val_list += gu.chunk_data_for_NRI(val, size=config['timesteps'])
 
     # init model
     encoder = MLPEncoder(
