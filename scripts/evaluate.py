@@ -4,15 +4,19 @@ Script that evaluates a trained model
 
 import os
 import glob
+import numpy as np
 import pickle as pkl
 import matplotlib.pyplot as plt
 
 import torch
 from torch_geometric.loader import DataLoader
 
+import graph_utils.utils as gu
+import graph_utils.nri_utils as gun
+
 from model.gnn import MPNN, EGNN
 from model.eggn_model import EGNN_vel
-import graph_utils.utils as gu
+from model.NRI import MLPEncoder, MLPDecoder
 
 
 def rollout_inference_acc(model, test_set, frame_rate=120):
@@ -138,6 +142,66 @@ def rollout_inference_pos(model, test_set, model_type, frame_rate=120):
     ]
 
 
+def rollout_inference_nri(checkpoint, test_set):
+    """
+    runs inference with the nri model
+    """
+    # init model
+    config = checkpoint['config']
+    encoder = MLPEncoder(
+        config['timesteps'] * config['node_dim'],
+        config['encoder_hidden'],
+        config['edge_types'],
+        config['encoder_dropout'],
+        config['factor']
+    )
+    decoder = MLPDecoder(
+        n_in_node=config['node_dim'],
+        edge_types=config['edge_types'],
+        msg_hid=config['decoder_hidden'],
+        msg_out=config['decoder_hidden'],
+        n_hid=config['decoder_hidden'],
+        do_prob=config['decoder_dropout'],
+        skip_first=config['skip_first']
+    )
+    encoder.load_state_dict(checkpoint['encoder'])
+    decoder.load_state_dict(checkpoint['decoder'])
+    encoder.eval()
+    decoder.eval()
+    
+    num_fish = 8
+    off_diag = np.ones([num_fish, num_fish]) - np.eye(num_fish)
+    rel_rec = np.array(gun.encode_onehot(np.where(off_diag)[0]), dtype=float)
+    rel_send = np.array(gun.encode_onehot(np.where(off_diag)[1]), dtype=float)
+    rel_rec = torch.FloatTensor(rel_rec)
+    rel_send = torch.FloatTensor(rel_send)
+
+    # get data chunks
+    test = gu.chunk_data_for_NRI(test_set, size=config['timesteps'])
+
+    # loop through test data
+    # This re-evaluates the graphs every chunk, but continues to predict
+    # using the last predicted position
+    preds = []
+    last_pred = test[0].x.transpose(1, 2).contiguous()
+    last_pred = last_pred[:,0::config['timesteps'],:,:].contiguous()
+    for i in test:
+        # evaluate graph
+        logits = encoder(torch.FloatTensor(i.x).contiguous(), rel_rec, rel_send)
+        edges = gun.gumbel_softmax(logits, tau=config['temp'], hard=config['hard'])
+        prob = gun.my_softmax(logits, -1)
+
+        # predict location
+        curr_rel_type = edges.unsqueeze(1)
+        for step in range(i.x.shape[2]):
+            last_pred = decoder.single_step_forward(
+                last_pred, rel_rec, rel_send, curr_rel_type
+            )
+            preds.append(last_pred)
+
+    return torch.stack([p[:, :, :, :2].squeeze() for p in preds])
+
+
 def plot_rollout(rollout_preds, test_set):
     num_fish = rollout_preds[0].shape[0]
     for i in range(num_fish // 2):
@@ -167,7 +231,7 @@ def plot_rollout(rollout_preds, test_set):
         axs[3].set_title(f'fish {i * 2 + 1} y')
 
         for ax in axs.reshape(-1):
-            ax.set_ylim([-150, 150])
+            ax.set_ylim([-1, 1])
             # ax.set_xlim([0, 240])
             pass
 
@@ -184,7 +248,7 @@ def evaluate(model):
     Returns validation loss, test loss, and a rollout inference of the test set
     """
     # load model
-    checkpoint = torch.load(model)
+    checkpoint = torch.load(model, map_location=torch.device('cpu'))
     datasets = checkpoint['datasets']
     config = checkpoint['config']
 
@@ -196,49 +260,49 @@ def evaluate(model):
     train, val, test = gu.train_val_test(data_list)
 
     # getting val and test losses
-    loss_fn = torch.nn.MSELoss()
-    val_dataloader = DataLoader(val, batch_size=len(val))
-    test_dataloader = DataLoader(test, batch_size=len(test))
-    val_batch = next(iter(val_dataloader))
-    test_batch = next(iter(test_dataloader))
+    # loss_fn = torch.nn.MSELoss()
+    # val_dataloader = DataLoader(val, batch_size=len(val))
+    # test_dataloader = DataLoader(test, batch_size=len(test))
+    # val_batch = next(iter(val_dataloader))
+    # test_batch = next(iter(test_dataloader))
 
     # defining model and output
-    if checkpoint['model_type'] == 'mpnn':
-        model = MPNN(
-            noise_std=config['noise_std'],
-            mp_mlp_hidden_dim=config['mp_mlp_hidden_dim'],
-            update_mlp_hidden_dim=config['update_mlp_hidden_dim']
-        )
-        val_out = val_batch.acc
-        test_out = test_batch.acc
+    # if checkpoint['model_type'] == 'mpnn':
+    #     model = MPNN(
+    #         noise_std=config['noise_std'],
+    #         mp_mlp_hidden_dim=config['mp_mlp_hidden_dim'],
+    #         update_mlp_hidden_dim=config['update_mlp_hidden_dim']
+    #     )
+    #     val_out = val_batch.acc
+    #     test_out = test_batch.acc
 
-    elif checkpoint['model_type'] == 'egnn':
-        model = EGNN(
-            num_fish=train[0].x.shape[0],
-            batch_size=len(test),  # NOTE
-            noise_std=config['noise_std'],
-            mlp_hidden_dim=config['mp_mlp_hidden_dim'],
-            mlp_depth=config['mlp_depth']
-        )
-        val_out = val_batch.pos
-        test_out = test_batch.pos
+    # elif checkpoint['model_type'] == 'egnn':
+    #     model = EGNN(
+    #         num_fish=train[0].x.shape[0],
+    #         batch_size=len(test),  # NOTE
+    #         noise_std=config['noise_std'],
+    #         mlp_hidden_dim=config['mp_mlp_hidden_dim'],
+    #         mlp_depth=config['mlp_depth']
+    #     )
+    #     val_out = val_batch.pos
+    #     test_out = test_batch.pos
 
-    elif checkpoint['model_type'] == 'egnn_paper':
-        model = EGNN_vel(
-            in_node_nf=1,
-            in_edge_nf=1,
-            hidden_nf=64,
-            device='cpu',
-            n_layers=4,
-            recurrent=True,
-            norm_diff=False,
-            tanh=False
-        )
-        val_out = val_batch.pos
-        test_out = test_batch.pos
+    # elif checkpoint['model_type'] == 'egnn_paper':
+    #     model = EGNN_vel(
+    #         in_node_nf=1,
+    #         in_edge_nf=1,
+    #         hidden_nf=64,
+    #         device='cpu',
+    #         n_layers=4,
+    #         recurrent=True,
+    #         norm_diff=False,
+    #         tanh=False
+    #     )
+    #     val_out = val_batch.pos
+    #     test_out = test_batch.pos
 
-    model.load_state_dict(checkpoint['model'])
-    model.eval()
+    # model.load_state_dict(checkpoint['model'])
+    # model.eval()
 
     # val_loss = loss_fn(
     #     model(
@@ -259,7 +323,9 @@ def evaluate(model):
     #     test_out
     # )
 
-    if checkpoint['model_type'] == 'mpnn':
+    if 'encoder' and 'decoder' in checkpoint.keys():
+        rollout_preds = rollout_inference_nri(checkpoint, test)
+    elif checkpoint['model_type'] == 'mpnn':
         rollout_preds = rollout_inference_acc(model, test)
     elif checkpoint['model_type'] == 'egnn' or 'egnn_paper':
         rollout_preds = rollout_inference_pos(model, test, checkpoint['model_type'])
@@ -267,7 +333,7 @@ def evaluate(model):
     # printing results
     # print('val loss:', val_loss)
     # print('test loss:', test_loss)
-    plot_rollout(rollout_preds[0], test)
+    plot_rollout(rollout_preds, test)
 
 
 if __name__ == '__main__':
