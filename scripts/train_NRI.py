@@ -114,7 +114,7 @@ def train(datasets, plot_loss=True, save_model=True, model_type='egnn'):
     scheduler.step()
 
     # set up fully connected graph
-    num_fish = train[0].x.shape[1]
+    num_fish = train_list[0].x.shape[1]
     off_diag = np.ones([num_fish, num_fish]) - np.eye(num_fish)
     rel_rec = np.array(gun.encode_onehot(np.where(off_diag)[0]), dtype=float)
     rel_send = np.array(gun.encode_onehot(np.where(off_diag)[1]), dtype=float)
@@ -126,7 +126,7 @@ def train(datasets, plot_loss=True, save_model=True, model_type='egnn'):
     tot_val_loss = []
     best_val_loss = 1e10
     dataloader = DataLoader(
-        train,
+        train_list,
         batch_size=config['batch_size'],
         shuffle=True
     )
@@ -174,7 +174,7 @@ def train(datasets, plot_loss=True, save_model=True, model_type='egnn'):
         encoder.eval()
         decoder.eval()
         curr_val_loss, val_loss_nll, val_loss_kl = validate(
-            encoder, decoder, rel_rec, rel_send, val, config, num_fish, device
+            encoder, decoder, rel_rec, rel_send, val_list, config, num_fish, device
         )
 
         # epoch metrics
