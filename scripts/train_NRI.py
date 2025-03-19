@@ -193,7 +193,7 @@ def train(datasets, plot_loss=True, save_model=True, model_type='egnn'):
             tot_train_loss.append(np.mean(epoch_loss))
             tot_val_loss.append(curr_val_loss)
             fp = 'results/saved_models'
-            file = os.path.join(fp, f'nri_all8fish.pt')
+            file = os.path.join(fp, f'nri_all8fish_nojumps.pt')
             torch.save(
                 {
                     'encoder': encoder.state_dict(),
