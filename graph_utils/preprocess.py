@@ -43,12 +43,12 @@ def generate_x_dot(loc, frame_rate=120):
         vel = np.array(
             (np.convolve([1, -1], pos[0, :], 'valid'),
              np.convolve([1, -1], pos[1, :], 'valid'))
-        ) / frame_rate
+        ) * frame_rate
 
         acc = np.array(
             (np.convolve([1, -1], vel[0, :], 'valid'),
              np.convolve([1, -1], vel[1, :], 'valid'))
-        ) / frame_rate
+        ) * frame_rate
 
         x.append(pos)
         x_dot.append(vel)
@@ -150,6 +150,7 @@ def main(fp, save_fp):
     fish_files = os.listdir(fp)
 
     # loop though files
+    graph_lens = []
     for f in fish_files:
         fish_h5 = h5py.File(os.path.join(fp, f))
 

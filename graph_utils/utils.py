@@ -50,40 +50,6 @@ def train_val_test(data, train_size=0.8, val_size=0.1, test_size=0.1):
     return data[:train_idx], data[train_idx:val_idx], data[val_idx:]
 
 
-def vel_vel_corr(data):
-    """
-    calculates velocity-velocity auto-correlation values for each fish.
-    Equationo taken from Vicsek and Zafeiris (2012)
-
-    TODO: test this
-    """
-    c_vv = []
-
-    # loop through time
-    for i in range(len(data)):
-        v_t = data[i].vel  # time
-
-        # loop through previous values
-        num = np.zeros_like(np.matmul(v_t, v_t.T).diag())
-        denom = np.zeros_like(np.matmul(v_t, v_t.T).diag())
-        for j in range(len(i + 1)):
-            v_0 = data[j].vel.T
-            num += np.matmul(v_t, v_0.T).diag()
-            denom += np.matmul(v_0, v_0.T).diag()
-
-        # avg over starting times
-        num /= num.shape[0]
-        denom /= denom.shape[0]
-
-        # calc correlation at time t
-        c = np.sum(num / denom) / v_t.shape[0]
-
-        # store
-        c_vv.append(c)
-
-    return c_vv
-
-
 def chunk_data_for_NRI(data, size=49):
     """
     Splits data for the NRI model
@@ -118,4 +84,3 @@ def chunk_data_for_NRI(data, size=49):
 if __name__ == '__main__':
     fp = 'data/fish/processed/8fish/240816f1.pkl'
     data = pkl.load(open(fp, 'rb'))
-    vel_vel_corr(data)

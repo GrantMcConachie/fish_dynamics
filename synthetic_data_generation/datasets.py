@@ -3,6 +3,7 @@ creating a bunch of different synthetic datasets
 """
 
 import numpy as np
+import matplotlib.pyplot as plt
 from scripts.fish_gif import make_animation
 
 
@@ -77,7 +78,7 @@ class SpringSim():
         return dist
 
     def sample_trajectory(self, T=10000, sample_freq=10,
-                          spring_prob=[1. / 2, 0, 1. / 2]):
+                          spring_prob=[1. / 2, 0, 1. / 2]):  # prev: [1. / 2, 0, 1. / 2]
         n = self.n_balls
         assert (T % sample_freq == 0)
         T_save = int(T / sample_freq - 1)
@@ -150,12 +151,82 @@ class SpringSim():
             return loc, vel, edges
 
 
+class LorenzSystem():
+    def __init__(
+            self,
+            n_particles=8,
+            sigma=10.,
+            ro=28.,
+            beta=8/3.,
+
+    ):
+        self.n_particles = n_particles
+        self.sigma = sigma
+        self.ro = ro
+        self.beta = beta
+        np.random.seed(42) # set random seed
+
+    def _plot_lorenz(self):
+        fig, axs = plt.subplots(1, (self.n_particles - 4))
+        for i in range((self.n_particles-4)):
+            axs[i].scatter(self.x[:, i], self.y[:, i])
+        
+        plt.tight_layout()
+        plt.show()
+    
+    def sample_trajectory(self, time=100000, dt=1/120):
+        """
+        Generate a lorez system
+        """
+        # initialize values
+        x_0 = np.random.randn(1, self.n_particles)
+        y_0 = np.random.randn(1, self.n_particles)
+        z_0 = np.random.randn(1, self.n_particles)
+
+        # simulate values
+        x = np.zeros((time + 1, self.n_particles))
+        y = np.zeros((time + 1, self.n_particles))
+        z = np.zeros((time + 1, self.n_particles))
+
+        x[0] = x_0
+        y[0] = y_0
+        z[0] = z_0
+
+        for t in range(time):
+            x[t+1] = x[t] + dt * self.sigma * (y[t] - x[t])
+            y[t+1] = y[t] + dt * (x[t] * (self.ro - z[t]) - y[t])
+            z[t+1] = z[t] + dt * (x[t] * y[t] - self.beta * z[t])
+
+        # for plotting
+        self.x = x
+        self.y = y
+        self.z = z
+
+        return np.stack([x, y, x], axis=-1)
+
+
 if __name__ == '__main__':
-    sim = SpringSim()
-    loc, vel, edges = sim.sample_trajectory(T=1000000, sample_freq=100)
-    make_animation(
-        loc.reshape(loc.shape[0], loc.shape[2], loc.shape[1]),
-        filename="./spring.gif",
-        boundary=5
-    )
-    print('done')
+    # Lorenz
+    sim = LorenzSystem()
+    sim.sample_trajectory()
+    sim._plot_lorenz()
+
+    # srping system
+    # sim = SpringSim()
+    # for i in range(5):
+    #     loc, vel, edges = sim.sample_trajectory(T=100000, sample_freq=100)
+    #     make_animation(
+    #         np.einsum('ijk->ikj', loc),
+    #         edges=None,
+    #         filename=f"./results/figs/spring_mass/spring_{i}_no.gif",
+    #         boundary=5,
+    #         same_color=True
+    #     )
+    #     make_animation(
+    #         np.einsum('ijk->ikj', loc),
+    #         edges=edges,
+    #         filename=f"./results/figs/spring_mass/spring_{i}_edges.gif",
+    #         boundary=5,
+    #         same_color=True
+    #     )
+    # print('done')
